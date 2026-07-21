@@ -366,9 +366,8 @@ file
 controllerRef.current =
 new AbortController();
 
-const res=await fetch(
-
-`https://ai-chat-box-dioe.onrender.com`,
+const res = await fetch(
+  `https://ai-chat-box-dioe.onrender.com/api/chat/${currentId}`,,
 
 {
 
