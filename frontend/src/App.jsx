@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import "./App.css";
 
-axios.defaults.baseURL = "http://localhost:5000";
+axios.defaults.baseURL = "https://ai-chat-box-dioe.onrender.com";
 
 axios.interceptors.request.use((config)=>{
 
