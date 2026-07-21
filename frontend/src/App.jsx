@@ -368,7 +368,7 @@ new AbortController();
 
 const res=await fetch(
 
-`http://localhost:5000/api/chat/${currentId}`,
+`https://ai-chat-box-dioe.onrender.com`,
 
 {
 
