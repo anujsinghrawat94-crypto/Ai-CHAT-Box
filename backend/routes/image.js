@@ -1,69 +1,44 @@
 import express from "express";
+import fetch from "node-fetch";
 import authMiddleware from "../middleware/authMiddleware.js";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 
 const router = express.Router();
 
+router.post("/generate-image", authMiddleware, async (req, res) => {
+  try {
+    const { prompt } = req.body;
 
-const genAI = new GoogleGenerativeAI(
-    process.env.GEMINI_API_KEY
-);
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt required" });
+    }
 
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ inputs: prompt }),
+      }
+    );
 
-router.post("/generate", authMiddleware, async(req,res)=>{
-
-try{
-
-
-const {prompt}=req.body;
-
-
-if(!prompt){
-    return res.status(400).json({
-        error:"Prompt required"
-    });
+    if (!response.ok) {
+  const errorText = await response.text();
+  console.log("HF IMAGE ERROR:", errorText);
+  return res.status(500).json({ error: "Invalid API Key or model issue" });
 }
 
+const imageBuffer = await response.arrayBuffer();
 
+    res.set("Content-Type", "image/png");
+    res.send(Buffer.from(imageBuffer));
 
-const model = genAI.getGenerativeModel({
-    model:"gemini-2.0-flash"
+  } catch (err) {
+    console.log("HF ERROR:", err);
+    res.status(500).json({ error: "Image generation failed" });
+  }
 });
-
-
-const result = await model.generateContent(prompt);
-
-
-const response =
-result.response.text();
-
-
-
-res.json({
-
-success:true,
-result:response
-
-});
-
-
-}catch(err){
-
-console.log("GEMINI IMAGE ERROR:",err);
-
-
-res.status(500).json({
-
-error:"Gemini failed"
-
-});
-
-
-}
-
-
-});
-
 
 export default router;

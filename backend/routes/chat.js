@@ -1,17 +1,21 @@
+import fetch from "node-fetch";
 import express from "express";
 import Chat from "../models/Chat.js";
 import authMiddleware from "../middleware/authMiddleware.js";
-import Groq from "groq-sdk";
 import multer from "multer";
 import mammoth from "mammoth";
-import * as pdfParse from "pdf-parse";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+
+const pdfParse = require("pdf-parse");
 import fs from "fs";
 import path from "path";
 import mime from "mime-types";
 
 
 const upload = multer({
-  dest: "uploads/"
+  dest: "uploads/",
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 });
 const router = express.Router();
 router.get("/", authMiddleware, async (req, res) => {
@@ -34,14 +38,14 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 router.get("/:id", authMiddleware, async (req,res)=>{
   try {
-
-    const chat = await Chat.findById(req.params.id);
-
-
-    if(!chat){
+       if(!chat){
       return res.status(404).json({
         error:"Chat not found"
       });
+    const chat = await Chat.findById(req.params.id);
+
+
+   
     }
 
 
@@ -71,18 +75,13 @@ router.get("/:id", authMiddleware, async (req,res)=>{
 });
 
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
-
-
 // ==============================
 // CREATE NEW CHAT
 // ==============================//
 router.post("/", authMiddleware, async (req, res) => {
   try {
 
-    const userId = req.user.id || req.user.userId;
+    const userId = req.user.id;
 
     if (!userId) {
       return res.status(401).json({
@@ -123,6 +122,11 @@ router.post("/:id", authMiddleware, upload.single("file"), async (req, res) => {
 
 
     const chat = await Chat.findById(req.params.id);
+    if (chat.userId.toString() !== req.user.id) {
+  return res.status(403).json({
+    error: "Not authorized"
+  });
+}
 
 
 
@@ -163,7 +167,7 @@ if (req.file) {
 
     const dataBuffer = fs.readFileSync(filePath);
 
-   const pdfData = await pdfParse.PDFParse(dataBuffer);
+   const pdfData = await pdfParse(dataBuffer);
 
 documentText = pdfData.text;
   }
@@ -245,8 +249,6 @@ Only give programming answers with examples.
 Keep answers clean and structured.
 `;
 }
-res.setHeader("Content-Type", "text/plain");
-res.setHeader("Transfer-Encoding", "chunked");
 
 let fullReply = "";
 
@@ -264,18 +266,7 @@ if (
 
   const base64Image = imageBuffer.toString("base64");
 
-  userContent = [
-    {
-      type: "text",
-      text: message
-    },
-    {
-      type: "image_url",
-      image_url: {
-        url: `data:${mime.lookup(req.file.originalname)};base64,${base64Image}`
-      }
-    }
-  ];
+ userContent = message + "\n(Note: image uploaded but not processed)";
 
 }
 
@@ -304,48 +295,49 @@ else {
 
 }
 
+const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
+console.log("HF KEY EXISTS:", !!HF_API_KEY);
 
-
-const completion = await groq.chat.completions.create({
-
-  model: "llama-3.1-8b-instant",
-
-  stream:true,
-
-
-  messages:[
-
-    {
-      role:"system",
-      content:systemPrompt
+const hfResponse = await fetch(
+  "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${HF_API_KEY}`,
+      "Content-Type": "application/json",
     },
-
-
-    {
-      role:"user",
-      content:userContent
-    }
-
-  ]
-
-});
-
-// 🔥 THIS WAS MISSING
-for await (const chunk of completion) {
-  const content = chunk.choices?.[0]?.delta?.content || "";
-
-  if (content) {
-    fullReply += content;
-    res.write(content); // send to frontend
+    body: JSON.stringify({
+      inputs: `${systemPrompt}\n\nUser: ${userContent}\nAssistant:`,
+    }),
   }
+);
+
+const data = await hfResponse.json();
+
+// 🔥 handle invalid API key or model errors
+if (data.error) {
+  console.log("HF ERROR:", data.error);
+  return res.status(500).send("AI Error: " + data.error);
 }
+
+const aiReply =
+  Array.isArray(data) && data[0]?.generated_text
+    ? data[0].generated_text
+    : "No response from AI.";
+
+fullReply = aiReply;
+
+// send response (NO streaming)
+res.send(fullReply);
 
 
 // ✅ Save final AI message
-chat.messages.push({
-  role: "assistant",
-  content: fullReply,
-});
+if (fullReply.trim()) {
+  chat.messages.push({
+    role: "assistant",
+    content: fullReply,
+  });
+}
 
 await chat.save();
 if(req.file){
@@ -358,7 +350,7 @@ if(req.file){
 
 }
 
-res.end(); // 🔥 end stream
+// 🔥 end stream
 
 
 

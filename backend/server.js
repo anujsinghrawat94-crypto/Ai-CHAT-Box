@@ -13,7 +13,10 @@ const app = express();
 
 app.use(
  cors({
-  origin:"https://ai-chat-box-1-y8ai.onrender.com",
+  origin: [
+  "http://localhost:3000",
+  "https://ai-chat-box-1-y8ai.onrender.com"
+],
   credentials:true
  })
 );
@@ -40,6 +43,8 @@ mongoose
 
 // Server
 
-app.listen(5000,()=>{
- console.log("Server running on port 5000 🚀");
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT} 🚀`);
 });
