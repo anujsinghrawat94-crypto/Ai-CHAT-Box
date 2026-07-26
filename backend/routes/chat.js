@@ -38,16 +38,14 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 router.get("/:id", authMiddleware, async (req,res)=>{
   try {
-       if(!chat){
+
+    const chat = await Chat.findById(req.params.id);
+
+    if(!chat){
       return res.status(404).json({
         error:"Chat not found"
       });
-    const chat = await Chat.findById(req.params.id);
-
-
-   
     }
-
 
     // security check
     if(chat.userId.toString() !== req.user.id){
@@ -332,8 +330,14 @@ try {
 }
 console.log("HF RESPONSE:", data);
 
-// 🔥 handle invalid API key or model errors
-return res.status(500).send("AI Error: " + JSON.stringify(data.error));
+// Handle Hugging Face errors
+if (data.error) {
+  console.log("HF ERROR:", data.error);
+
+  return res.status(500).send(
+    "AI Error: " + JSON.stringify(data.error)
+  );
+}
 
 const aiReply =
   data.choices?.[0]?.message?.content ||
