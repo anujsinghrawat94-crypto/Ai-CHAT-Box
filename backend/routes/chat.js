@@ -318,7 +318,18 @@ const hfResponse = await fetch(
     }),
   }
 );
-const data = await hfResponse.json();
+const rawResponse = await hfResponse.text();
+
+console.log("HF STATUS:", hfResponse.status);
+console.log("HF RAW RESPONSE:", rawResponse);
+
+let data;
+
+try {
+  data = JSON.parse(rawResponse);
+} catch {
+  return res.status(500).send("HF RAW ERROR: " + rawResponse);
+}
 console.log("HF RESPONSE:", data);
 
 // 🔥 handle invalid API key or model errors
