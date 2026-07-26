@@ -299,7 +299,7 @@ const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
 console.log("HF KEY EXISTS:", !!HF_API_KEY);
 
 const hfResponse = await fetch(
-  "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-7B-Instruct",
+  "https://router.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct",
  {
     method: "POST",
     headers: {
