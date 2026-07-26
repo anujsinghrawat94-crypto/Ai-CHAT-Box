@@ -299,8 +299,8 @@ const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
 console.log("HF KEY EXISTS:", !!HF_API_KEY);
 
 const hfResponse = await fetch(
-  "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2",
-  {
+  "https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta",
+ {
     method: "POST",
     headers: {
       Authorization: `Bearer ${HF_API_KEY}`,
