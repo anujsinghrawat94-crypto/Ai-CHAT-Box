@@ -307,7 +307,7 @@ const hfResponse = await fetch(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "meta-llama/Llama-3.1-8B-Instruct:featherless-ai",
+      model: "Qwen/Qwen2.5-7B-Instruct:nebius",
       messages: [
         {
           role: "user",
