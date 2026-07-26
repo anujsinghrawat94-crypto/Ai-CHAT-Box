@@ -333,10 +333,7 @@ try {
 console.log("HF RESPONSE:", data);
 
 // 🔥 handle invalid API key or model errors
-if (data.error) {
-  console.log("HF ERROR:", data.error);
-  return res.status(500).send("AI Error: " + data.error);
-}
+return res.status(500).send("AI Error: " + JSON.stringify(data.error));
 
 const aiReply =
   data.choices?.[0]?.message?.content ||
