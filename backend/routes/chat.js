@@ -299,19 +299,25 @@ const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
 console.log("HF KEY EXISTS:", !!HF_API_KEY);
 
 const hfResponse = await fetch(
-  "https://router.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct",
- {
+  "https://router.huggingface.co/v1/chat/completions",
+  {
     method: "POST",
     headers: {
       Authorization: `Bearer ${HF_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      inputs: `${systemPrompt}\n\nUser: ${userContent}\nAssistant:`,
+      model: "meta-llama/Llama-3.1-8B-Instruct",
+      messages: [
+        {
+          role: "user",
+          content: userContent
+        }
+      ],
+      max_tokens: 500
     }),
   }
 );
-
 const data = await hfResponse.json();
 console.log("HF RESPONSE:", data);
 
@@ -322,9 +328,8 @@ if (data.error) {
 }
 
 const aiReply =
-  Array.isArray(data) && data[0]?.generated_text
-    ? data[0].generated_text
-    : "No response from AI.";
+  data.choices?.[0]?.message?.content ||
+  "No response from AI.";
 
 fullReply = aiReply;
 
