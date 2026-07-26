@@ -313,6 +313,7 @@ const hfResponse = await fetch(
 );
 
 const data = await hfResponse.json();
+console.log("HF RESPONSE:", data);
 
 // 🔥 handle invalid API key or model errors
 if (data.error) {
