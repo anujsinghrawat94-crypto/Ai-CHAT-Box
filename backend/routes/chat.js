@@ -307,7 +307,7 @@ const hfResponse = await fetch(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "Qwen/Qwen2.5-7B-Instruct:nebius",
+      model: "Qwen/Qwen2.5-7B-Instruct",
       messages: [
         {
           role: "user",
