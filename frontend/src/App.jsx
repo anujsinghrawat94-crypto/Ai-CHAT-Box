@@ -302,7 +302,67 @@ if (lower.includes("what date")) {
 }
 
 if (!userText.trim()) return;
+// ===== IMAGE GENERATION =====
+if (
+  lower.includes("generate image") ||
+  lower.includes("create image") ||
+  lower.includes("make image") ||
+  lower.includes("draw")
+) {
 
+  setChat(prev => [
+    ...prev,
+    {
+      role: "user",
+      content: userText
+    },
+    {
+      role: "assistant",
+      content: "Generating image..."
+    }
+  ]);
+
+  setMessage("");
+  setLoading(true);
+
+  try {
+
+    const res = await axios.post(
+      "/api/image/generate-image",
+      {
+        prompt: userText
+      }
+    );
+
+    const imageUrl =
+      "data:image/png;base64," +
+      btoa(
+        new Uint8Array(res.data)
+          .reduce((data, byte) => data + String.fromCharCode(byte), "")
+      );
+
+
+    setChat(prev => {
+
+      let copy = [...prev];
+
+      copy[copy.length - 1].content =
+        `![generated image](${imageUrl})`;
+
+      return copy;
+
+    });
+
+
+  } catch(err){
+
+    console.log("IMAGE ERROR:", err);
+
+  }
+
+  setLoading(false);
+  return;
+}
 let currentId=chatId;
 
 if(!currentId){
@@ -648,7 +708,7 @@ setChatId("");
 
         <input
         type="file"
-        accept=".pdf,.docx"
+        accept=".pdf,.docx,image/*"
         onChange={(e)=>setFile(e.target.files[0])}
         />
 
