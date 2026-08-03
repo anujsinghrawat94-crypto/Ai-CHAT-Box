@@ -80,22 +80,37 @@ body { margin: 0; background: var(--bg-canvas); color: var(--text-primary); }
   padding: 10px 12px 10px 16px;
   border-radius: 10px;
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.15s ease;
   border-left: 3px solid transparent;
 }
 .chat-item:hover { background: #1a212b; }
+
+/* Active chat gets a solid accent bar, a filled tinted background,
+   a subtle glow, and a checkmark — not just a faint border like before,
+   so it's unmistakable which conversation you're currently in. */
 .chat-item.active {
-  background: var(--accent-soft);
-  border-left: 3px solid var(--accent);
+  background: linear-gradient(90deg, var(--accent-soft), transparent);
+  border-left: 4px solid var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(124, 92, 255, 0.25);
 }
 .chat-item span {
-  color: var(--text-primary);
+  color: var(--text-muted);
   font-size: 13.5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
 }
-.chat-item.active span { color: white; font-weight: 500; }
+.chat-item.active span { color: white; font-weight: 600; }
+.chat-item .active-tick {
+  color: var(--accent);
+  font-size: 12px;
+  flex-shrink: 0;
+}
 
 .chat-item .delete-btn {
   opacity: 0;
@@ -109,6 +124,12 @@ body { margin: 0; background: var(--bg-canvas); color: var(--text-primary); }
 }
 .chat-item:hover .delete-btn { opacity: 1; }
 .chat-item .delete-btn:hover { color: var(--danger); background: #ff6b6b1a; }
+
+.popup-subtitle {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  margin: 4px 0 0;
+}
 
 .sidebar-footer {
   padding: 12px;
@@ -224,6 +245,44 @@ body { margin: 0; background: var(--bg-canvas); color: var(--text-primary); }
   border-bottom-left-radius: 4px;
 }
 
+/* Markdown content from the AI can include headers, rules, lists, code —
+   without these resets, browser-default heading sizes blow the bubble
+   up far larger than the rest of the chat (this was visibly broken:
+   AI replies with a "#" heading rendered at ~32px inside a 14px chat). */
+.message :is(h1, h2, h3, h4, h5, h6) {
+  font-size: 14.5px;
+  font-weight: 700;
+  margin: 10px 0 6px;
+  line-height: 1.3;
+}
+.message p { margin: 0 0 8px; }
+.message p:last-child { margin-bottom: 0; }
+.message hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 10px 0;
+}
+.message ul, .message ol { margin: 6px 0; padding-left: 20px; }
+.message li { margin-bottom: 4px; }
+.message pre {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 10px 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 13px;
+}
+.message code {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.message pre code { background: none; padding: 0; }
+.message table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+.message th, .message td { border: 1px solid var(--border); padding: 5px 9px; }
+.message a { color: inherit; text-decoration: underline; }
+.message img { max-width: 100%; border-radius: 8px; }
+
 .typing-row { display: flex; gap: 5px; padding: 4px 0; }
 .typing-dot {
   width: 6px; height: 6px; border-radius: 50%;
@@ -237,20 +296,54 @@ body { margin: 0; background: var(--bg-canvas); color: var(--text-primary); }
   40% { opacity: 1; transform: scale(1); }
 }
 
-/* ---------------- INPUT TOOLBAR ---------------- */
+/* ---------------- EMPTY STATE (first impression, no messages yet) ---------------- */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+}
+.empty-state h1 {
+  font-size: 27px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+.empty-subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0 0 26px;
+}
+.composer-wrap {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.empty-state .tools-row { justify-content: center; }
+
+
 .input-box {
-  padding: 16px 24px 20px;
+  padding: 12px 24px 20px;
   border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.toolbar-card {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 10px 12px;
+/* Tools row: quiet, low-emphasis strip for settings/options — mic,
+   speaker, attach, language, mode. Deliberately understated so it
+   doesn't compete visually with the compose/send row below it. */
+.tools-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 0 2px;
 }
 
 .toolbar-group {
@@ -263,9 +356,9 @@ body { margin: 0; background: var(--bg-canvas); color: var(--text-primary); }
 .toolbar-group:last-of-type { border-right: none; }
 
 .icon-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-muted);
@@ -273,7 +366,7 @@ body { margin: 0; background: var(--bg-canvas); color: var(--text-primary); }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 14px;
   transition: all 0.12s ease;
 }
 .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -283,11 +376,11 @@ body { margin: 0; background: var(--bg-canvas); color: var(--text-primary); }
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 12px;
-  border-radius: 10px;
+  padding: 6px 11px;
+  border-radius: 9px;
   border: 1px dashed var(--border);
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -298,10 +391,30 @@ body { margin: 0; background: var(--bg-canvas); color: var(--text-primary); }
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-muted);
-  border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 12.5px;
+  border-radius: 7px;
+  padding: 5px 7px;
+  font-size: 12px;
   cursor: pointer;
+}
+
+/* Compose/send row: this is the ONE thing on the page that should
+   read as "the primary action". Bigger, its own elevated card, a
+   glowing accent-colored border, and it brightens further on focus —
+   nothing in the tools row above shares this treatment. */
+.composer-row {
+  background: var(--bg-panel);
+  border: 1.5px solid var(--accent);
+  border-radius: 18px;
+  padding: 6px 6px 6px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 4px 18px rgba(124, 92, 255, 0.12);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.composer-row:focus-within {
+  border-color: #9b83ff;
+  box-shadow: 0 0 0 4px var(--accent-soft), 0 4px 22px rgba(124, 92, 255, 0.22);
 }
 
 .composer-input {
@@ -310,23 +423,25 @@ body { margin: 0; background: var(--bg-canvas); color: var(--text-primary); }
   border: none;
   outline: none;
   color: var(--text-primary);
-  font-size: 14px;
-  padding: 8px 6px;
+  font-size: 14.5px;
+  padding: 10px 0;
 }
 .composer-input::placeholder { color: var(--text-faint); }
 
 .send-btn {
-  padding: 10px 20px;
+  padding: 12px 24px;
   background: var(--accent);
   border: none;
-  border-radius: 10px;
+  border-radius: 13px;
   color: white;
-  font-weight: 600;
-  font-size: 13.5px;
+  font-weight: 700;
+  font-size: 14px;
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: background 0.12s ease, transform 0.08s ease;
+  flex-shrink: 0;
 }
 .send-btn:hover { background: #6a4bef; }
+.send-btn:active { transform: scale(0.96); }
 .send-btn.stop { background: var(--danger); }
 
 /* ---------------- AUTH SCREEN ---------------- */

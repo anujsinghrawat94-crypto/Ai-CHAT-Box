@@ -25,6 +25,7 @@ axios.interceptors.request.use((config) => {
 function App() {
   const controllerRef = useRef(null);
   const chatEndRef = useRef(null);
+  const popupInputRef = useRef(null);
 
   const [isLogin, setIsLogin] = useState(true);
 
@@ -61,6 +62,22 @@ function App() {
       fetchChats();
     }
   }, [token]);
+
+  // Auto-focus the "name your chat" field the moment the popup opens,
+  // so the user can just start typing instead of having to click into it.
+  useEffect(() => {
+    if (showPopup) {
+      // Timeout lets the popup finish mounting/animating in before focusing
+      const t = setTimeout(() => popupInputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, [showPopup]);
+
+  const confirmNewChat = () => {
+    createChat(newChatName);
+    setNewChatName("");
+    setShowPopup(false);
+  };
 
   // ================= AUTH =================
   const handleAuth = async () => {
@@ -472,6 +489,84 @@ function App() {
   const activeChat = chats.find((c) => c._id === chatId);
   const activeTitle = activeChat?.title || (chatId ? "New Chat" : "Select or start a chat");
   const modeLabel = { normal: "Normal mode", tutor: "Tutor mode", coder: "Coder mode" }[mode];
+  const isEmpty = chat.length === 0;
+
+  // Shared between the centered "first impression" layout (no messages
+  // yet) and the bottom-docked layout (once a conversation exists) —
+  // defined once so both states can never drift out of sync with
+  // each other's controls or handlers.
+  const toolsRow = (
+    <div className="tools-row">
+      <div className="toolbar-group">
+        <button className="icon-btn" onClick={startListening} title="Voice input">
+          🎤
+        </button>
+        <button
+          className={isSpeakingEnabled ? "icon-btn on" : "icon-btn"}
+          onClick={() => {
+            speechSynthesis.cancel();
+            setIsSpeakingEnabled(!isSpeakingEnabled);
+          }}
+          title={isSpeakingEnabled ? "Mute replies" : "Unmute replies"}
+        >
+          🔊
+        </button>
+      </div>
+
+      <div className="toolbar-group">
+        <label className="file-chip">
+          📎 {file ? file.name.slice(0, 16) : "Attach"}
+          <input
+            type="file"
+            accept=".pdf,.docx,image/*"
+            onChange={(e) => setFile(e.target.files[0])}
+          />
+        </label>
+      </div>
+
+      <div className="toolbar-group">
+        <select className="mini-select" value={language} onChange={(e) => setLanguage(e.target.value)}>
+          <option value="en">EN</option>
+          <option value="hi">HI</option>
+          <option value="es">ES</option>
+          <option value="fr">FR</option>
+        </select>
+
+        <select className="mini-select" value={mode} onChange={(e) => setMode(e.target.value)}>
+          <option value="normal">Normal</option>
+          <option value="tutor">Tutor</option>
+          <option value="coder">Coder</option>
+        </select>
+      </div>
+    </div>
+  );
+
+  const composerRow = (
+    <div className="composer-row">
+      <input
+        className="composer-input"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            sendMessage();
+          }
+        }}
+        placeholder="Send a message..."
+      />
+
+      {loading ? (
+        <button className="send-btn stop" onClick={stopGenerating}>
+          Stop
+        </button>
+      ) : (
+        <button className="send-btn" onClick={() => sendMessage()}>
+          Send
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <div className="app">
@@ -489,7 +584,10 @@ function App() {
               className={c._id === chatId ? "chat-item active" : "chat-item"}
               key={c._id}
             >
-              <span onClick={() => loadChat(c._id)}>{c.title || "New Chat"}</span>
+              <span onClick={() => loadChat(c._id)}>
+                {c._id === chatId && <span className="active-tick">●</span>}
+                {c.title || "New Chat"}
+              </span>
               <button className="delete-btn" onClick={() => deleteChat(c._id)}>
                 🗑️
               </button>
@@ -514,140 +612,85 @@ function App() {
       </div>
 
       <div className="chat-container">
-        <div className="chat-topbar">
-          <h2>{activeTitle}</h2>
-          <span className="mode-chip">{modeLabel}</span>
-        </div>
-
-        {/* Messages */}
-        <div className="messages">
-          {chat.map((msg, index) => (
-            <div
-              key={index}
-              className={msg.role === "user" ? "msg-row user" : "msg-row assistant"}
-            >
-              <div className={msg.role === "user" ? "avatar user" : "avatar assistant"}>
-                {msg.role === "user" ? "U" : "AI"}
-              </div>
-              <div className="msg-bubble-wrap">
-                <span className="msg-role">{msg.role === "user" ? "You" : "Assistant"}</span>
-                <div className={msg.role === "user" ? "message user" : "message assistant"}>
-                  {msg.content ? (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
-                  ) : (
-                    <div className="typing-row">
-                      <div className="typing-dot"></div>
-                      <div className="typing-dot"></div>
-                      <div className="typing-dot"></div>
-                    </div>
-                  )}
-                </div>
-              </div>
+        {isEmpty ? (
+          <div className="empty-state">
+            <h1>What can I help with?</h1>
+            <p className="empty-subtitle">
+              Ask a question, upload a document, or generate an image to get started.
+            </p>
+            <div className="composer-wrap">
+              {toolsRow}
+              {composerRow}
             </div>
-          ))}
-
-          <div ref={chatEndRef}></div>
-        </div>
-
-        {/* Input Section */}
-        <div className="input-box">
-          <div className="toolbar-card">
-            <div className="toolbar-group">
-              <button className="icon-btn" onClick={startListening} title="Voice input">
-                🎤
-              </button>
-              <button
-                className={isSpeakingEnabled ? "icon-btn on" : "icon-btn"}
-                onClick={() => {
-                  speechSynthesis.cancel();
-                  setIsSpeakingEnabled(!isSpeakingEnabled);
-                }}
-                title={isSpeakingEnabled ? "Mute replies" : "Unmute replies"}
-              >
-                🔊
-              </button>
-            </div>
-
-            <div className="toolbar-group">
-              <label className="file-chip">
-                📎 {file ? file.name.slice(0, 16) : "Attach"}
-                <input
-                  type="file"
-                  accept=".pdf,.docx,image/*"
-                  onChange={(e) => setFile(e.target.files[0])}
-                />
-              </label>
-            </div>
-
-            <div className="toolbar-group">
-              <select
-                className="mini-select"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-              >
-                <option value="en">EN</option>
-                <option value="hi">HI</option>
-                <option value="es">ES</option>
-                <option value="fr">FR</option>
-              </select>
-
-              <select
-                className="mini-select"
-                value={mode}
-                onChange={(e) => setMode(e.target.value)}
-              >
-                <option value="normal">Normal</option>
-                <option value="tutor">Tutor</option>
-                <option value="coder">Coder</option>
-              </select>
-            </div>
-
-            <input
-              className="composer-input"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  sendMessage();
-                }
-              }}
-              placeholder="Send a message..."
-            />
-
-            {loading ? (
-              <button className="send-btn stop" onClick={stopGenerating}>
-                Stop
-              </button>
-            ) : (
-              <button className="send-btn" onClick={() => sendMessage()}>
-                Send
-              </button>
-            )}
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="chat-topbar">
+              <h2>{activeTitle}</h2>
+              <span className="mode-chip">{modeLabel}</span>
+            </div>
+
+            {/* Messages */}
+            <div className="messages">
+              {chat.map((msg, index) => (
+                <div
+                  key={index}
+                  className={msg.role === "user" ? "msg-row user" : "msg-row assistant"}
+                >
+                  <div className={msg.role === "user" ? "avatar user" : "avatar assistant"}>
+                    {msg.role === "user" ? "U" : "AI"}
+                  </div>
+                  <div className="msg-bubble-wrap">
+                    <span className="msg-role">{msg.role === "user" ? "You" : "Assistant"}</span>
+                    <div className={msg.role === "user" ? "message user" : "message assistant"}>
+                      {msg.content ? (
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                      ) : (
+                        <div className="typing-row">
+                          <div className="typing-dot"></div>
+                          <div className="typing-dot"></div>
+                          <div className="typing-dot"></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <div ref={chatEndRef}></div>
+            </div>
+
+            {/* Input Section */}
+            <div className="input-box">
+              {toolsRow}
+              {composerRow}
+            </div>
+          </>
+        )}
       </div>
 
       {showPopup && (
         <div className="popup-overlay" onClick={() => setShowPopup(false)}>
           <div className="popup" onClick={(e) => e.stopPropagation()}>
             <h3>Create New Chat</h3>
+            <p className="popup-subtitle">Give it a name, or leave it blank to call it "New Chat".</p>
 
             <input
+              ref={popupInputRef}
               placeholder="Enter chat name..."
               value={newChatName}
               onChange={(e) => setNewChatName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  confirmNewChat();
+                } else if (e.key === "Escape") {
+                  setShowPopup(false);
+                }
+              }}
             />
 
-            <button
-              onClick={() => {
-                createChat(newChatName);
-                setNewChatName("");
-                setShowPopup(false);
-              }}
-            >
-              Create
-            </button>
+            <button onClick={confirmNewChat}>Create</button>
 
             <button onClick={() => setShowPopup(false)}>Cancel</button>
           </div>
